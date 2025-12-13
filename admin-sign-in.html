@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAVETECH - Admin Sign In</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        body {
+            background-image: url('https://i.ibb.co/K7hm3HS/DALL-E-2024-11-13-16-31-04-A-cinematic-background-with-subtle-hints-of-a-theater-ambiance-Include-ab.png');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center top;
+            color: #f0f0f0;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+
+        .content {
+            position: relative;
+            z-index: 2;
+            max-width: 400px;
+            padding: 2em;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        h2 {
+            color: white;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 0.75em;
+            margin: 0.5em 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .sign-in-btn {
+            width: 100%;
+            padding: 1em;
+            margin-top: 1em;
+            background-color: white;
+            color: black;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .sign-in-btn:hover {
+            background-color: black;
+            color: white;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem;
+            border-radius: 5px;
+            color: white;
+            z-index: 1000;
+        }
+
+        .error-message {
+            background-color: #dc3545;
+        }
+
+        .success-message {
+            background-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+
+    <div class="content">
+        <h2>Admin Sign In</h2>
+        <form id="adminSignInForm">
+            <input type="text" id="adminUsername" class="input-field" placeholder="Username" required>
+            <input type="password" id="adminPassword" class="input-field" placeholder="Password" required>
+            <button type="submit" class="sign-in-btn">Sign In</button>
+        </form>
+    </div>
+
+    <script>
+        function showMessage(message, isError = false, callback = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${isError ? 'error-message' : 'success-message'}`;
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+
+            setTimeout(() => {
+                messageDiv.remove();
+                if (callback) callback(); // Execute callback after message disappears
+            }, 2000);
+        }
+
+        document.getElementById("adminSignInForm").addEventListener("submit", function(e) {
+            e.preventDefault(); // Prevent form submission from refreshing the page
+
+            const username = document.getElementById("adminUsername").value.trim();
+            const password = document.getElementById("adminPassword").value.trim();
+
+            // Hardcoded credentials (replace with database/auth integration if needed)
+            const adminUsername = "admin";
+            const adminPassword = "password123";
+
+            if (username === adminUsername && password === adminPassword) {
+                showMessage("Sign in successful! Redirecting...", false, () => {
+                    setTimeout(() => {
+                        window.location.replace("admin-dashboard.html"); // Ensures proper navigation
+                    }, 1500); // Delay for better UX
+                });
+            } else {
+                showMessage("Invalid credentials. Please try again.", true);
+            }
+        });
+    </script>
+</body>
+</html>
