@@ -1,3 +1,4 @@
+// index.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +7,8 @@
     <title>Register & Login</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- Load local, gitignored Firebase config BEFORE firebaseauth.js -->
+    <script src="config.local.js"></script>
     <script type="module" src="firebaseauth.js"></script>
 </head>
 <body>
@@ -33,7 +36,7 @@
                 <input type="password" id="rPassword" placeholder="Password" required>
                 <label for="rPassword">Password</label>
             </div>
-            <button class="btn" id="submitSignUp">Sign Up</button>
+            <button type="button" class="btn" id="submitSignUp">Sign Up</button>
         </form>
 
         <p class="or"></p>
@@ -59,7 +62,7 @@
                 <label for="password">Password</label>
             </div>
 
-            <button class="btn" id="submitSignIn">Log In</button>
+            <button type="button" class="btn" id="submitSignIn">Log In</button>
         </form>
 
         <p class="or"></p>

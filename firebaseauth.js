@@ -1,187 +1,222 @@
+// firebaseauth.js
 // Import Firebase SDKs
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-app.js";
-import { 
-    getAuth, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    sendEmailVerification, 
-    onAuthStateChanged, 
-    signOut 
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendEmailVerification,
+    onAuthStateChanged,
+    signOut,
+    deleteUser
 } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-auth.js";
-import { 
-    getFirestore, 
-    setDoc, 
-    getDoc, 
-    doc 
+import {
+    getFirestore,
+    setDoc,
+    getDoc,
+    doc
 } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-firestore.js";
 
-// Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyBaeqe_--Me5w9mTz0jnEMqlAqwm63Le7A",
-    authDomain: "davetech-movie-management.firebaseapp.com",
-    projectId: "davetech-movie-management",
-    storageBucket: "davetech-movie-management.appspot.com", // Fixed the incorrect URL
-    messagingSenderId: "228063967069",
-    appId: "1:228063967069:web:473243916b9f724b101ab4"
-};
+// Firebase configuration: loaded from window.FIREBASE_CONFIG injected by a local file
+const firebaseConfig = (() => {
+    if (window.FIREBASE_CONFIG && typeof window.FIREBASE_CONFIG === "object") {
+        return window.FIREBASE_CONFIG;
+    }
+    console.error("Missing window.FIREBASE_CONFIG. Ensure config.local.js is loaded before firebaseauth.js.");
+    throw new Error("Firebase config not found. Create config.local.js and include it before this script.");
+})();
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-// Function to show messages
-function showMessage(message, divId) {
-    var messageDiv = document.getElementById(divId);
-    if (messageDiv) {
-        messageDiv.style.display = "block";
-        messageDiv.innerHTML = message;
-        messageDiv.style.opacity = 1;
+// Check if running on localhost
+const isLocalhost = window.location.hostname === "localhost" || 
+                    window.location.hostname === "127.0.0.1" ||
+                    window.location.protocol === "file:";
 
-        setTimeout(() => {
-            messageDiv.style.opacity = 0;
-        }, 5000);
+console.log("🌐 Running on:", isLocalhost ? "localhost" : "production");
+
+// Helper function
+function showMessage(message, elementId, isError = false) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = message;
+        element.style.color = isError ? 'red' : 'green';
     }
 }
 
-// Register new user
-document.getElementById('submitSignUp')?.addEventListener('click', async (event) => {
-    event.preventDefault();
-
+// ---------------------------------------------------------
+// SIGN UP - Simplified for local testing
+// ---------------------------------------------------------
+document.getElementById('submitSignUp')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
     const email = document.getElementById('rEmail').value;
     const password = document.getElementById('rPassword').value;
     const firstName = document.getElementById('fName').value;
     const lastName = document.getElementById('lName').value;
 
+    if (!email || !password || !firstName || !lastName) {
+        showMessage("All fields required", "signUpMessage", true);
+        return;
+    }
+
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Send email verification
-        await sendEmailVerification(user);
-        showMessage("Email verification link sent!", "signUpMessage");
-
-        // Save user data in Firestore
+        // Save to Firestore
         await setDoc(doc(db, "users", user.uid), {
-            email: email,
-            firstName: firstName,
-            lastName: lastName,
-            role: "user" // Default role
+            email,
+            firstName,
+            lastName,
+            role: "user",
+            createdAt: new Date(),
+            // Auto-verify for local testing
+            emailVerified: isLocalhost
         });
 
-        showMessage("Account Created Successfully", "signUpMessage");
+        // Only send verification email if NOT on localhost
+        if (!isLocalhost) {
+            await sendEmailVerification(user);
+            showMessage("Registered! Check email for verification.", "signUpMessage", false);
+        } else {
+            console.log("✅ Localhost: Skipping email verification");
+            showMessage("✅ Registration successful! Email verification skipped for local testing.", "signUpMessage", false);
+        }
 
-        // Redirect to login page after a delay
-        setTimeout(() => {
-            window.location.href = "index.html";
-        }, 2000);
+        // Auto-login for localhost testing
+        if (isLocalhost) {
+            setTimeout(() => {
+                // Auto-fill login form and submit
+                document.getElementById('email').value = email;
+                document.getElementById('password').value = password;
+                document.getElementById('submitSignIn').click();
+            }, 1000);
+        }
 
     } catch (error) {
-        if (error.code === 'auth/email-already-in-use') {
-            showMessage('Email Address Already Exists !!!', 'signUpMessage');
-        } else {
-            showMessage('Unable to create user', 'signUpMessage');
-        }
+        console.error("Signup error:", error);
+        showMessage("Error: " + error.message, "signUpMessage", true);
     }
 });
 
-// Sign in existing user
-document.getElementById('submitSignIn')?.addEventListener('click', async (event) => {
-    event.preventDefault();
-    console.log("Login button clicked, preventing refresh..."); // Debugging log
-
+// ---------------------------------------------------------
+// SIGN IN - Email verification bypassed for localhost
+// ---------------------------------------------------------
+document.getElementById('submitSignIn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    
+
     if (!email || !password) {
-        showMessage("Please fill in all fields!", "signInMessage");
+        showMessage("Email and password required", "signInMessage", true);
         return;
     }
 
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
-
-        if (!user.emailVerified) {
-            showMessage("Please verify your email before logging in", "signInMessage");
+        
+        // LOCALHOST BYPASS: Skip email verification check
+        if (!user.emailVerified && !isLocalhost) {
+            showMessage("Please verify your email first", "signInMessage", true);
+            await signOut(auth);
             return;
         }
+        
+        // For localhost, show warning but allow login
+        if (!user.emailVerified && isLocalhost) {
+            console.log("⚠️ Localhost: Bypassing email verification");
+            showMessage("⚠️ Email not verified - Login allowed for local testing", "signInMessage", false);
+            
+            // Auto-mark as verified in Firestore for local testing
+            try {
+                await updateDoc(doc(db, "users", user.uid), {
+                    emailVerified: true
+                });
+                console.log("✅ Auto-marked as verified for local testing");
+            } catch (firestoreError) {
+                console.log("Note: Couldn't update Firestore, but continuing anyway");
+            }
+        }
 
-        localStorage.setItem('loggedInUserId', user.uid);
-        showMessage("Login Successful", "signInMessage");
-
-        setTimeout(() => {
-            window.location.href = "homepage.html";
-        }, 2000);
+        // Get user data
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+            localStorage.setItem('user', JSON.stringify(userDoc.data()));
+            showMessage("Login successful!", "signInMessage", false);
+            
+            setTimeout(() => {
+                window.location.href = "homepage.html";
+            }, 1000);
+        } else {
+            showMessage("User data not found", "signInMessage", true);
+        }
 
     } catch (error) {
-        if (error.code === 'auth/user-not-found') {
-            showMessage("No account found with this email.", "signInMessage");
-        } else if (error.code === 'auth/wrong-password') {
-            showMessage("Incorrect password. Try again.", "signInMessage");
+        console.error("Login error:", error);
+        
+        if (error.code === 'auth/invalid-credential') {
+            showMessage("Invalid email or password", "signInMessage", true);
         } else {
-            showMessage("Login failed: " + error.message, "signInMessage");
+            showMessage("Login failed: " + error.message, "signInMessage", true);
         }
     }
 });
 
-// Check authentication state
+// ---------------------------------------------------------
+// AUTH STATE - Bypass verification redirects on localhost
+// ---------------------------------------------------------
 onAuthStateChanged(auth, async (user) => {
-    const currentPage = window.location.pathname;
+    const currentPage = window.location.pathname.split('/').pop();
+    const publicPages = ['index.html', 'signup.html', ''];
+    const isPublicPage = publicPages.includes(currentPage);
 
     if (user) {
-        try {
-            const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const userData = docSnap.data();
-                updateUserInterface(userData);
-            } else {
-                console.log("No document found for user");
-                if (currentPage !== "/index.html") {
-                    window.location.href = "index.html";
-                }
-            }
-        } catch (error) {
-            console.error("Error getting user document:", error);
-            if (currentPage !== "/index.html") {
+        // LOCALHOST BYPASS: Don't require verification
+        if (!user.emailVerified && !isLocalhost) {
+            console.log("Email not verified, redirecting to login");
+            if (!isPublicPage) {
+                await signOut(auth);
                 window.location.href = "index.html";
+            }
+            return;
+        }
+
+        // Get user data
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+            console.log("User logged in:", userDoc.data().email);
+            
+            // Redirect to homepage if on login page
+            if (isPublicPage) {
+                window.location.href = "homepage.html";
             }
         }
     } else {
-        // Redirect only if the user is on a restricted page
-        if (currentPage !== "/index.html" && currentPage !== "/signup.html") {
+        // Not logged in - redirect to login if on protected page
+        if (!isPublicPage) {
             window.location.href = "index.html";
         }
     }
 });
 
-// Update UI with user data
-function updateUserInterface(userData) {
-    const fNameElement = document.getElementById('loggedUserFName');
-    const lNameElement = document.getElementById('loggedUserLName');
-    const emailElement = document.getElementById('loggedUserEmail');
-    const profileInitialsElement = document.getElementById('profileInitials');
+// Logout
+document.getElementById('logout')?.addEventListener('click', async () => {
+    await signOut(auth);
+    localStorage.removeItem('user');
+    window.location.href = "index.html";
+});
 
-    if (fNameElement) fNameElement.innerText = userData.firstName || '';
-    if (lNameElement) lNameElement.innerText = userData.lastName || '';
-    if (emailElement) emailElement.innerText = userData.email || '';
-
-    // Update profile picture initials
-    if (profileInitialsElement) {
-        const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}`;
-        profileInitialsElement.innerText = initials.toUpperCase();
-    }
+// Helper function to update Firestore (needs to be imported)
+async function updateDoc(docRef, data) {
+    // This is a simplified version - you should import updateDoc from firestore
+    const { updateDoc: firestoreUpdate } = await import("https://www.gstatic.com/firebasejs/11.3.0/firebase-firestore.js");
+    return firestoreUpdate(docRef, data);
 }
 
-// Logout functionality
-document.getElementById('logout')?.addEventListener('click', async () => {
-    try {
-        await signOut(auth);
-        localStorage.removeItem('loggedInUserId');
-        window.location.href = "index.html";
-    } catch (error) {
-        console.error("Error signing out:", error);
-    }
-});
+console.log("✅ Auth system loaded - Localhost mode:", isLocalhost);
