@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Davetech Movie Management</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">DAVETECH MOVIES</h1>
+            <div class="flex items-center space-x-2">
+                <button onclick="goHome()" class="bg-gray-500 px-4 py-2 rounded">Home</button>
+                <input type="text" id="searchInput" placeholder="Search movies..." class="px-3 py-2 text-black rounded">
+                <button onclick="searchMovies()" class="bg-green-500 px-4 py-2 rounded">Search</button>
+                <button onclick="viewWatchLater()" class="bg-yellow-500 px-4 py-2 rounded">View Watch Later</button>
+                <button onclick="logout()" class="bg-red-600 px-4 py-2 rounded">Log Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Movie Section -->
+    <section id="moviesSection" class="container mx-auto mt-8 p-4">
+        <h2 class="text-3xl font-bold text-center mb-6">Watch Your Favorite Movies</h2>
+        <div id="moviesContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div id="movieModal" class="modal">
+            <!-- Movies will be dynamically added here -->
+        </div>
+
+    </section>
+
+    <!-- Watch Later Section -->
+    <section id="watchLaterSection" class="container mx-auto mt-8 p-4 hidden">
+        <h2 class="text-3xl font-bold text-center mb-6">Watch Later</h2>
+        <div id="watchLaterContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- Watch later movies will be dynamically added here -->
+        </div>
+        <button onclick="closeWatchLater()" class="mt-4 bg-gray-700 px-4 py-2 rounded">Close</button>
+    </section>
+
+    <!-- Video Player Modal -->
+    <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center">
+        <div class="bg-white p-4 rounded-lg max-w-3xl w-full">
+            <h3 id="movieTitle" class="text-black text-xl font-semibold mb-4"></h3>
+            <iframe id="moviePlayer" class="w-full h-96" frameborder="0" allowfullscreen></iframe>
+            <button onclick="closeModal()" class="mt-4 bg-red-600 px-4 py-2 text-white rounded">Close</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBaeqe_--Me5w9mTz0jnEMqlAqwm63Le7A",
+            authDomain: "davetech-movie-management.firebaseapp.com",
+            projectId: "davetech-movie-management",
+            storageBucket: "davetech-movie-management.appspot.com",
+            messagingSenderId: "228063967069",
+            appId: "1:228063967069:web:473243916b9f724b101ab4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore();
+        const auth = getAuth();
+        let userId = null;
+        let allMovies = [];
+
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                checkUserExists(userId);
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        async function checkUserExists(uid) {
+            const userRef = doc(db, "users", uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+                await setDoc(userRef, { watchLater: [] });
+            }
+        }
+
+        async function fetchMovies() {
+            allMovies = [];
+            try {
+                const querySnapshot = await getDocs(collection(db, "movies"));
+                querySnapshot.forEach((doc) => {
+                    const movie = { id: doc.id, ...doc.data() };
+                    allMovies.push(movie);
+                });
+
+                displayMovies(allMovies);
+            } catch (error) {
+                console.error("Error fetching movies:", error);
+            }
+        }
+
+        function displayMovies(movies) {
+            document.getElementById('moviesContainer').innerHTML = movies.map(movie => `
+                <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                    <img src="${movie.thumbnail}" alt="${movie.title}" class="w-full h-48 object-cover rounded-lg">
+                    <h3 class="mt-2 text-lg font-bold">${movie.title}</h3>
+                    <p class="text-sm text-gray-400">${movie.genre}</p>
+                    <button onclick="openModal('${movie.video}', '${movie.title}')" class="mt-2 bg-blue-600 px-4 py-2 rounded">Watch Now</button>
+                    <button onclick="addToWatchLater('${movie.id}')" class="mt-2 bg-yellow-500 px-4 py-2 rounded">Watch Later</button>
+                </div>
+            `).join('');
+        }
+        
+
+        window.searchMovies = () => {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            displayMovies(allMovies.filter(movie => 
+                movie.title.toLowerCase().includes(searchText) || 
+                movie.genre.toLowerCase().includes(searchText)
+            ));
+        };
+
+        window.openModal = (videoUrl, title) => {
+            let embedUrl = videoUrl.includes("watch?v=") ? videoUrl.replace("watch?v=", "embed/") :
+                           videoUrl.includes("youtu.be/") ? `https://www.youtube.com/embed/${videoUrl.split("youtu.be/")[1]}` :
+                           videoUrl;
+
+            document.getElementById('moviePlayer').src = embedUrl;
+            document.getElementById('movieTitle').textContent = title;
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('moviePlayer').src = "";
+            document.getElementById('modalOverlay').classList.add('hidden');
+        };
+
+       // ✅ Add to Watch Later (Saves to Firestore)
+    window.addToWatchLater = async (movieId) => {
+        if (!userId) {
+            alert("⚠️ Please sign in first!");
+            return;
+        }
+
+        try {
+            const userRef = doc(db, "users", userId);
+            await updateDoc(userRef, {
+                watchLater: arrayUnion(movieId) // Adds movieId without duplicates
+            });
+
+            alert("✅ Added to Watch Later!");
+            console.log("Added Movie ID:", movieId); // Debugging
+
+        } catch (error) {
+            console.error("Error adding to Watch Later:", error);
+            alert("❌ Failed to add movie. Try again.");
+        }
+    };
+
+    // ✅ View Watch Later Movies (Fetch from Firestore)
+    window.viewWatchLater = async () => {
+        if (!userId) {
+            alert("⚠️ Please sign in first!");
+            return;
+        }
+
+        document.getElementById('moviesSection').classList.add('hidden');
+        document.getElementById('watchLaterSection').classList.remove('hidden');
+
+        try {
+            const userSnap = await getDoc(doc(db, "users", userId));
+            if (userSnap.exists()) {
+                const watchLaterMoviesIds = userSnap.data().watchLater || [];
+                console.log("Watch Later Movies:", watchLaterMoviesIds); // Debugging
+
+                const watchLaterMovies = allMovies.filter(movie => watchLaterMoviesIds.includes(movie.id));
+                displayWatchLaterMovies(watchLaterMovies);
+            } else {
+                alert("⚠️ No movies found in Watch Later.");
+            }
+        } catch (error) {
+            console.error("Error fetching Watch Later:", error);
+            alert("❌ Failed to load Watch Later movies.");
+        }
+    };
+
+    // ✅ Display Watch Later Movies
+    function displayWatchLaterMovies(movies) {
+        document.getElementById('watchLaterContainer').innerHTML = movies.map(movie => `
+            <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                <img src="${movie.thumbnail}" alt="${movie.title}" class="w-full h-48 object-cover rounded-lg">
+                <h3 class="mt-2 text-lg font-bold">${movie.title}</h3>
+                <p class="text-sm text-gray-400">${movie.genre}</p>
+                <button onclick="openModal('${movie.video}', '${movie.title}')" class="mt-2 bg-blue-600 px-4 py-2 rounded">Watch Now</button>
+                <button onclick="removeFromWatchLater('${movie.id}')" class="mt-2 bg-red-600 px-4 py-2 rounded">Remove</button>
+            </div>
+        `).join('');
+    }
+
+    // ✅ Remove from Watch Later
+    window.removeFromWatchLater = async (movieId) => {
+        if (!userId) {
+            alert("⚠️ Please sign in first!");
+            return;
+        }
+
+        try {
+            const userRef = doc(db, "users", userId);
+            await updateDoc(userRef, {
+                watchLater: arrayRemove(movieId) // Removes movieId from the array
+            });
+
+            alert("✅ Removed from Watch Later!");
+            viewWatchLater(); // Refresh the list
+
+        } catch (error) {
+            console.error("Error removing from Watch Later:", error);
+            alert("❌ Failed to remove movie. Try again.");
+        }
+    };
+
+    // ✅ Close Watch Later Section
+    window.closeWatchLater = () => {
+        document.getElementById('watchLaterSection').classList.add('hidden');
+        document.getElementById('moviesSection').classList.remove('hidden');
+    };
+        window.goHome = () => {
+            document.getElementById('watchLaterSection').classList.add('hidden');
+            document.getElementById('moviesSection').classList.remove('hidden');
+            fetchMovies();
+        };
+
+        window.logout = async () => {
+            await signOut(auth);
+            window.location.href = "index.html";
+        };
+
+        fetchMovies();
+
+    </script>
+</body>
+</html>
+

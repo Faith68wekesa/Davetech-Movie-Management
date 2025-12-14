@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Previous head section remains the same until styles -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Previous styles remain the same */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 50;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            z-index: 100;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .modal.active,
+        .modal-overlay.active {
+            display: block;
+        }
+        
+        .alert {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            z-index: 1000;
+            background-color: #10B981;
+            color: white;
+            animation: slideIn 0.3s ease-out;
+            display: none;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+            position: fixed;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            margin-left: 16rem; /* 256px = 16rem */
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Success Alert -->
+    <div id="successAlert" class="alert">
+        <span id="alertMessage">Operation successful!</span>
+        <button onclick="closeAlert()" class="ml-4 text-white">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- Navigation remains the same -->
+    <nav class="bg-blue-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center">
+                <button id="sidebarToggle" class="mr-4 md:hidden">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h1 class="text-2xl font-bold">DaveTech Admin Dashboard</h1>
+            </div>
+            <button id="logout" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Logout</button>
+        </div>
+    </nav>
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar bg-white w-64 shadow-lg">
+            <div class="p-4">
+                <div class="space-y-4">
+                    <div class="border-b pb-4 mb-4">
+                        <div class="mb-4">
+                            <p class="font-semibold">Administrator Panel</p>
+                        </div>
+                    </div>
+                    <a href="#" class="nav-link flex items-center space-x-2 p-2 hover:bg-gray-100 rounded" data-section="movies">
+                        <i class="fas fa-film"></i>
+                        <span>Manage Movies</span>
+                    </a>
+                    <a href="#" class="nav-link flex items-center space-x-2 p-2 hover:bg-gray-100 rounded" data-section="users">
+                        <i class="fas fa-users"></i>
+                        <span>Manage Users</span>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content area -->
+        <main class="main-content flex-1 p-4">
+            <!-- Movies Section -->
+            <div id="moviesSection" class="content-section active">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold">Manage Movies</h2>
+                        <button id="addMovieBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                            Add New Movie
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Genre</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Language</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="movieList" class="bg-white divide-y divide-gray-200">
+                                <!-- Movies will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Section -->
+            <div id="usersSection" class="content-section">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold">Manage Users</h2>
+                        <button id="addUserBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                            Add New User
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userList" class="bg-white divide-y divide-gray-200">
+                                <!-- Users will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <h2 class="text-xl font-bold mb-4">Add New User</h2>
+        <form id="addUserForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">First Name</label>
+                <input type="text" name="firstName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Last Name</label>
+                <input type="text" name="lastName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" name="email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Role</label>
+                <select name="role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeUserModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add User</button>
+            </div>
+        </form>
+    </div>
+    <div id="addMovieModal" class="modal">
+        <h2 class="text-xl font-bold mb-4">Add New Movie</h2>
+        <form id="addMovieForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Title</label>
+                <input type="text" name="title" id="movieTitle" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Genre</label>
+                <input type="text" name="genre" id="movieGenre" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Language</label>
+                <input type="text" name="language" id="movieLanguage" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Thumbnail URL</label>
+                <input type="url" name="thumbnail" id="movieThumbnail" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Video URL</label>
+                <input type="url" name="video" id="movieVideo" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Description</label>
+                <textarea name="description" id="movieDescription" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeMovieModal()" class="px-4 py-2 border rounded-md hover:bg-gray-100">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add Movie</button>
+            </div>
+        </form>
+    </div>
+
+
+    <script type="module">
+        // Previous Firebase imports and config remain the same
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged, 
+            signOut,
+            deleteUser 
+        } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            getDocs,
+            deleteDoc,
+            doc
+        } from "https://www.gstatic.com/firebasejs/11.3.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBaeqe_--Me5w9mTz0jnEMqlAqwm63Le7A",
+            authDomain: "davetech-movie-management.firebaseapp.com",
+            projectId: "davetech-movie-management",
+            storageBucket: "davetech-movie-management.appspot.com",
+            messagingSenderId: "228063967069",
+            appId: "1:228063967069:web:473243916b9f724b101ab4"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth();
+        const db = getFirestore();
+
+        // Alert functions
+        window.showAlert = (message) => {
+            const alert = document.getElementById('successAlert');
+            document.getElementById('alertMessage').textContent = message;
+            alert.classList.add('show');
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 3000);
+        };
+
+        window.closeAlert = () => {
+            document.getElementById('successAlert').classList.remove('show');
+        };
+
+        const modalOverlay = document.createElement('div');
+modalOverlay.className = 'modal-overlay';
+document.body.appendChild(modalOverlay);
+
+        // Movie Modal Functions
+const movieModal = document.getElementById('addMovieModal');
+const addMovieBtn = document.getElementById('addMovieBtn');
+
+window.openMovieModal = () => {
+    movieModal.classList.add('active');
+    modalOverlay.classList.add('active');
+};
+
+window.closeMovieModal = () => {
+    movieModal.classList.remove('active');
+    modalOverlay.classList.remove('active');
+    document.getElementById('addMovieForm').reset();
+};
+
+addMovieBtn.addEventListener('click', openMovieModal);
+
+// Add Movie Form Submission
+document.getElementById('addMovieForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const movieData = {
+        title: document.getElementById('movieTitle').value,
+        genre: document.getElementById('movieGenre').value,
+        language: document.getElementById('movieLanguage').value,
+        thumbnail: document.getElementById('movieThumbnail').value,
+        video: document.getElementById('movieVideo').value,
+        description: document.getElementById('movieDescription').value,
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        await addDoc(collection(db, "movies"), movieData);
+        showAlert('Movie added successfully!');
+        closeMovieModal();
+        fetchMovies();
+    } catch (error) {
+        showAlert('Error adding movie: ' + error.message);
+    }
+});
+
+// Update modal overlay click handler to close both modals
+modalOverlay.addEventListener('click', () => {
+    closeUserModal();
+    closeMovieModal();
+});
+
+        // Add User Form Submission
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const userData = {
+        firstName: formData.get('firstName'),
+        lastName: formData.get('lastName'),
+        email: formData.get('email'),
+        role: formData.get('role') || 'user'
+    };
+
+    try {
+        await addDoc(collection(db, "users"), userData);
+        showAlert('User added successfully!');
+        closeUserModal();
+        fetchUsers();  // Refresh the users list
+    } catch (error) {
+        showAlert('Error adding user: ' + error.message);
+    }
+});
+
+
+        // Previous navigation and fetch functions remain the same
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.content-section');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetSection = link.getAttribute('data-section');
+                
+                navLinks.forEach(l => l.classList.remove('bg-blue-50', 'text-blue-600'));
+                link.classList.add('bg-blue-50', 'text-blue-600');
+                
+                sections.forEach(section => {
+                    section.classList.remove('active');
+                    if (section.id === `${targetSection}Section`) {
+
+                        section.classList.add('active');
+                    }
+                });
+
+                if (targetSection === 'users') {
+                    fetchUsers();
+                } else if (targetSection === 'movies') {
+                    fetchMovies();
+                }
+            });
+        });
+
+        // Fetch Functions remain the same
+        async function fetchUsers() {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+
+            try {
+                const querySnapshot = await getDocs(collection(db, "users"));
+                querySnapshot.forEach((doc) => {
+                    const userData = doc.data();
+                    userList.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                ${userData.firstName} ${userData.lastName}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">${userData.email}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${userData.role || 'user'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${userData.role || 'user'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <button onclick="deleteUserAndData('${doc.id}')" 
+                                        class="text-red-600 hover:text-red-900">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                console.error("Error fetching users:", error);
+                showAlert('Error fetching users: ' + error.message);
+            }
+        }
+
+        async function fetchMovies() {
+            const movieList = document.getElementById('movieList');
+            movieList.innerHTML = '';
+
+            try {
+                const querySnapshot = await getDocs(collection(db, "movies"));
+                querySnapshot.forEach((doc) => {
+                    const movieData = doc.data();
+                    movieList.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">${movieData.title}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${movieData.genre}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${movieData.language}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <button onclick="deleteMovie('${doc.id}')" 
+                                        class="text-red-600 hover:text-red-900">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                console.error("Error fetching movies:", error);
+                showAlert('Error fetching movies: ' + error.message);
+            }
+        }
+
+        // Delete Functions
+        window.deleteUserAndData = async (userId) => {
+            if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+
+            try {
+                await deleteDoc(doc(db, "users", userId));
+                showAlert('User deleted successfully!');
+                fetchUsers();
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showAlert('Error deleting user: ' + error.message);
+            }
+        };
+
+        window.deleteMovie = async (movieId) => {
+            if (!confirm('Are you sure you want to delete this movie? This action cannot be undone.')) return;
+
+            try {
+                await deleteDoc(doc(db, "movies", movieId));
+                showAlert('Movie deleted successfully!');
+                fetchMovies();
+            } catch (error) {
+                console.error('Error deleting movie:', error);
+                showAlert('Error deleting movie: ' + error.message);
+            }
+        };
+
+        // Mobile sidebar toggle
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+
+        // Close modal when clicking overlay
+        modalOverlay.addEventListener('click', () => {
+            closeUserModal();
+        });
+
+        // Initialize the dashboard
+        document.querySelector('[data-section="movies"]').classList.add('bg-blue-50', 'text-blue-600');
+        fetchMovies();
+
+        // Logout functionality
+        document.getElementById('logout').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                window.location.href = 'index.html'; // Redirect to login page
+            } catch (error) {
+                console.error('Error signing out:', error);
+                showAlert('Error signing out: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
